@@ -1,7 +1,12 @@
-function onOpen() {
-  SpreadsheetApp.getUi().createMenu('CueTeds').addItem('Run', 'main').addToUi();
+function doGet(e) {
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle('BPL Integrated Monitoring')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function main() {
-  Logger.log('CueTeds build script running.');
+// Lets Index.html pull in Stylesheet.html / ClientJS.html via
+// <?!= include('Stylesheet') ?> scriptlets.
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }

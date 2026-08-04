@@ -1,0 +1,162 @@
+// Authentication, password hashing, and CacheService-backed sessions.
+
+function generateSalt_() {
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+function hashPassword_(password, salt) {
+  var digest = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    password + salt,
+    Utilities.Charset.UTF_8
+  );
+  return digest.map(function (byte) {
+    var v = (byte < 0 ? byte + 256 : byte).toString(16);
+    return v.length === 1 ? '0' + v : v;
+  }).join('');
+}
+
+// Constant-time string comparison to avoid leaking hash match length via timing.
+function safeEquals_(a, b) {
+  a = String(a);
+  b = String(b);
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function sessionCache_() {
+  return CacheService.getScriptCache();
+}
+
+function createSession_(user) {
+  var token = Utilities.getUuid();
+  var payload = {
+    userId: user['User ID'],
+    email: user['Email'],
+    fullName: user['Full Name'],
+    isSuperUser: user['Is SuperUser'] === 'Y',
+    branchAdminOf: user['Branch Admin Of'],
+    mustChangePassword: user['Must Change Password'] === 'Y'
+  };
+  sessionCache_().put(token, JSON.stringify(payload), CONFIG.SESSION_TTL_SECONDS);
+  return { token: token, payload: payload };
+}
+
+function readSession_(token) {
+  if (!token) return null;
+  var raw = sessionCache_().get(token);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeSession_(token, payload) {
+  sessionCache_().put(token, JSON.stringify(payload), CONFIG.SESSION_TTL_SECONDS);
+}
+
+/**
+ * Called from the client on login form submit.
+ * Never exposes whether the email exists — only generic failure messages.
+ */
+function attemptLogin(email, password) {
+  var user = findUserByEmail_(email);
+
+  if (!user) {
+    return { success: false, message: 'Invalid email or password.' };
+  }
+
+  var computedHash = hashPassword_(password, user['Salt']);
+  if (!safeEquals_(computedHash, user['Password Hash'])) {
+    return { success: false, message: 'Invalid email or password.' };
+  }
+
+  if (user['Account Status'] !== 'Active') {
+    return { success: false, message: 'This account is inactive. Please contact your administrator.' };
+  }
+
+  updateUserFields_(user._rowNumber, { 'Last Login': new Date() });
+
+  var session = createSession_(user);
+
+  return {
+    success: true,
+    token: session.token,
+    mustChangePassword: session.payload.mustChangePassword,
+    user: {
+      fullName: session.payload.fullName,
+      email: session.payload.email,
+      isSuperUser: session.payload.isSuperUser,
+      branchAdminOf: session.payload.branchAdminOf
+    }
+  };
+}
+
+/**
+ * Called on page load to silently resume a session stored client-side.
+ */
+function validateSession(token) {
+  var session = readSession_(token);
+  if (!session) {
+    return { valid: false };
+  }
+  return {
+    valid: true,
+    mustChangePassword: session.mustChangePassword,
+    user: {
+      fullName: session.fullName,
+      email: session.email,
+      isSuperUser: session.isSuperUser,
+      branchAdminOf: session.branchAdminOf
+    }
+  };
+}
+
+/**
+ * Forced password reset — required before any app access when
+ * Must Change Password = Y (new users and password resets).
+ */
+function changePassword(token, newPassword, confirmPassword) {
+  var session = readSession_(token);
+  if (!session) {
+    return { success: false, message: 'Your session has expired. Please log in again.' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { success: false, message: 'Passwords do not match.' };
+  }
+  if (String(newPassword).length < CONFIG.MIN_PASSWORD_LENGTH) {
+    return { success: false, message: 'Password must be at least ' + CONFIG.MIN_PASSWORD_LENGTH + ' characters.' };
+  }
+
+  var user = findUserById_(session.userId);
+  if (!user) {
+    return { success: false, message: 'User account not found.' };
+  }
+
+  var salt = generateSalt_();
+  var hash = hashPassword_(newPassword, salt);
+  updateUserFields_(user._rowNumber, {
+    'Password Hash': hash,
+    'Salt': salt,
+    'Must Change Password': 'N'
+  });
+
+  session.mustChangePassword = false;
+  writeSession_(token, session);
+
+  return { success: true };
+}
+
+function logout(token) {
+  if (token) {
+    sessionCache_().remove(token);
+  }
+  return { success: true };
+}

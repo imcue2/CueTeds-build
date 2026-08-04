@@ -1,0 +1,171 @@
+<script>
+  (function () {
+    var SESSION_KEY = 'bpl_session_token';
+
+    var screens = {
+      login: document.getElementById('screen-login'),
+      forcePw: document.getElementById('screen-force-password'),
+      shell: document.getElementById('screen-shell')
+    };
+
+    function showScreen(name) {
+      Object.keys(screens).forEach(function (key) {
+        screens[key].classList.toggle('hidden', key !== name);
+      });
+    }
+
+    function getToken() {
+      return localStorage.getItem(SESSION_KEY);
+    }
+    function setToken(token) {
+      localStorage.setItem(SESSION_KEY, token);
+    }
+    function clearToken() {
+      localStorage.removeItem(SESSION_KEY);
+    }
+
+    // ---------- Login screen ----------
+
+    var loginForm = document.getElementById('login-form');
+    var loginError = document.getElementById('login-error');
+    var loginBtn = document.getElementById('login-btn');
+    var loginEmail = document.getElementById('login-email');
+    var loginPassword = document.getElementById('login-password');
+    var loginShowHide = document.getElementById('login-show-hide');
+
+    loginShowHide.addEventListener('change', function () {
+      loginPassword.type = loginShowHide.checked ? 'text' : 'password';
+    });
+
+    loginForm.addEventListener('submit', function (evt) {
+      evt.preventDefault();
+      loginError.classList.add('hidden');
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Signing in…';
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign In';
+          if (!result.success) {
+            loginError.textContent = result.message;
+            loginError.classList.remove('hidden');
+            return;
+          }
+          setToken(result.token);
+          loginPassword.value = '';
+          if (result.mustChangePassword) {
+            showScreen('forcePw');
+          } else {
+            renderShell(result.user);
+            showScreen('shell');
+          }
+        })
+        .withFailureHandler(function (err) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign In';
+          loginError.textContent = 'Something went wrong. Please try again.';
+          loginError.classList.remove('hidden');
+        })
+        .attemptLogin(loginEmail.value, loginPassword.value);
+    });
+
+    // ---------- Force change password screen ----------
+
+    var forcePwForm = document.getElementById('force-pw-form');
+    var forcePwError = document.getElementById('force-pw-error');
+    var forcePwBtn = document.getElementById('force-pw-btn');
+    var newPassword = document.getElementById('new-password');
+    var confirmPassword = document.getElementById('confirm-password');
+    var forcePwShowHide = document.getElementById('force-pw-show-hide');
+
+    forcePwShowHide.addEventListener('change', function () {
+      var type = forcePwShowHide.checked ? 'text' : 'password';
+      newPassword.type = type;
+      confirmPassword.type = type;
+    });
+
+    forcePwForm.addEventListener('submit', function (evt) {
+      evt.preventDefault();
+      forcePwError.classList.add('hidden');
+      forcePwBtn.disabled = true;
+      forcePwBtn.textContent = 'Saving…';
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          forcePwBtn.disabled = false;
+          forcePwBtn.textContent = 'Set New Password';
+          if (!result.success) {
+            forcePwError.textContent = result.message;
+            forcePwError.classList.remove('hidden');
+            return;
+          }
+          newPassword.value = '';
+          confirmPassword.value = '';
+          resumeSession();
+        })
+        .withFailureHandler(function (err) {
+          forcePwBtn.disabled = false;
+          forcePwBtn.textContent = 'Set New Password';
+          forcePwError.textContent = 'Something went wrong. Please try again.';
+          forcePwError.classList.remove('hidden');
+        })
+        .changePassword(getToken(), newPassword.value, confirmPassword.value);
+    });
+
+    // ---------- Shell (placeholder) ----------
+
+    function initials(fullName) {
+      return String(fullName || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(function (part) { return part[0].toUpperCase(); })
+        .join('');
+    }
+
+    function renderShell(user) {
+      document.getElementById('shell-user-name').textContent = user.fullName;
+      document.getElementById('shell-user-role').textContent = user.isSuperUser ? 'SuperUser' : 'User';
+      document.getElementById('shell-user-avatar').textContent = initials(user.fullName);
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', function () {
+      var token = getToken();
+      google.script.run.logout(token || '');
+      clearToken();
+      showScreen('login');
+    });
+
+    // ---------- Resume session on load ----------
+
+    function resumeSession() {
+      var token = getToken();
+      if (!token) {
+        showScreen('login');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (!result.valid) {
+            clearToken();
+            showScreen('login');
+            return;
+          }
+          if (result.mustChangePassword) {
+            showScreen('forcePw');
+            return;
+          }
+          renderShell(result.user);
+          showScreen('shell');
+        })
+        .withFailureHandler(function () {
+          clearToken();
+          showScreen('login');
+        })
+        .validateSession(token);
+    }
+
+    resumeSession();
+  })();
+</script>

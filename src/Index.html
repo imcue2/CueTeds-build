@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('Stylesheet') ?>
+</head>
+<body>
+
+  <!-- ===================== Login ===================== -->
+  <div id="screen-login" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="logo-box">BPL</div>
+        <h1>Integrated Monitoring</h1>
+        <p>Blue Planet Logistics</p>
+      </div>
+
+      <div id="login-error" class="auth-error hidden"></div>
+
+      <form id="login-form" autocomplete="off">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" name="email" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <div class="password-row">
+            <input type="password" id="login-password" name="password" required autocomplete="current-password">
+          </div>
+          <label class="show-hide">
+            <input type="checkbox" id="login-show-hide">
+            Show password
+          </label>
+        </div>
+        <button type="submit" id="login-btn" class="btn-primary">Sign In</button>
+      </form>
+
+      <p class="auth-hint">Access is limited to Blue Planet Logistics staff.<br>Contact your administrator if you can't sign in.</p>
+    </div>
+  </div>
+
+  <!-- ============= Must Change Password ============= -->
+  <div id="screen-force-password" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="logo-box">BPL</div>
+        <h1>Set a New Password</h1>
+        <p>Required before continuing</p>
+      </div>
+
+      <div id="force-pw-error" class="auth-error hidden"></div>
+
+      <form id="force-pw-form" autocomplete="off">
+        <div class="field">
+          <label for="new-password">New Password</label>
+          <input type="password" id="new-password" name="newPassword" required autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="confirm-password">Confirm New Password</label>
+          <input type="password" id="confirm-password" name="confirmPassword" required autocomplete="new-password">
+          <label class="show-hide">
+            <input type="checkbox" id="force-pw-show-hide">
+            Show password
+          </label>
+        </div>
+        <button type="submit" id="force-pw-btn" class="btn-primary">Set New Password</button>
+      </form>
+
+      <p class="auth-hint">Your temporary password can only be used once.<br>Choose a new password to continue.</p>
+    </div>
+  </div>
+
+  <!-- ===================== Shell (placeholder) ===================== -->
+  <div id="screen-shell" class="shell hidden">
+    <div class="shell-header">
+      <div class="brand">
+        <div class="logo-box">BPL</div>
+        <div>
+          <div class="brand-title">Integrated Monitoring</div>
+          <div class="brand-sub">Blue Planet Logistics</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="user-chip">
+          <div class="avatar" id="shell-user-avatar"></div>
+          <div>
+            <div class="name" id="shell-user-name"></div>
+            <div class="role" id="shell-user-role"></div>
+          </div>
+        </div>
+        <button id="logout-btn" class="logout-btn" title="Log out">&#9099;</button>
+      </div>
+    </div>
+
+    <div class="shell-body">
+      <div class="shell-sidebar">
+        <div class="section-label">Modules</div>
+        <div class="nav-item placeholder">Module navigation coming next</div>
+      </div>
+      <div class="shell-content">
+        <div class="placeholder-card">
+          <h2>You're logged in</h2>
+          <p>
+            This is the shell placeholder landing area. The header module switcher,
+            left sidebar navigation, and Manage User access matrix will be built next —
+            this screen currently only confirms the login flow end-to-end.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <?!= include('ClientJS') ?>
+</body>
+</html>
