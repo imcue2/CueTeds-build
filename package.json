@@ -1,0 +1,17 @@
+{
+  "name": "cueteds-build",
+  "version": "1.0.0",
+  "description": "Google Apps Script project managed with clasp",
+  "private": true,
+  "scripts": {
+    "login": "clasp login",
+    "clone": "clasp clone",
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "deploy": "clasp deploy",
+    "open": "clasp open"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.3.0"
+  }
+}
