@@ -263,6 +263,37 @@
       return d.toLocaleString();
     }
 
+    // Guards a "Loading…" panel against hanging forever — either because the
+    // Apps Script call genuinely never returns, or because an exception
+    // inside onSuccess itself would otherwise leave the loading state on
+    // screen with no visible error. Wrap the body of every admin panel's
+    // success handler in this so a failure always becomes visible + retryable.
+    function withLoadingWatchdog_(containerEl, onSuccess, retryFn) {
+      var settled = false;
+      var timeoutId = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        containerEl.innerHTML = '<p class="admin-error">This is taking longer than expected. ' +
+          '<button class="btn-link" id="admin-watchdog-retry">Retry</button></p>';
+        var retryBtn = document.getElementById('admin-watchdog-retry');
+        if (retryBtn) retryBtn.addEventListener('click', retryFn);
+      }, 15000);
+
+      return function (result) {
+        if (settled) return; // watchdog already fired and replaced the panel
+        settled = true;
+        clearTimeout(timeoutId);
+        try {
+          onSuccess(result);
+        } catch (err) {
+          containerEl.innerHTML = '<p class="admin-error">Something went wrong rendering this panel. ' +
+            '<button class="btn-link" id="admin-watchdog-retry">Retry</button></p>';
+          var retryBtn = document.getElementById('admin-watchdog-retry');
+          if (retryBtn) retryBtn.addEventListener('click', retryFn);
+        }
+      };
+    }
+
     var adminState = { users: [], currentUserId: null };
 
     function renderManageUser_(sectionName) {
@@ -311,7 +342,7 @@
       if (!tableEl) return;
       tableEl.innerHTML = '<p class="admin-muted">Loading…</p>';
       google.script.run
-        .withSuccessHandler(function (result) {
+        .withSuccessHandler(withLoadingWatchdog_(tableEl, function (result) {
           if (!result.success) {
             tableEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
@@ -319,9 +350,9 @@
           adminState.users = result.users;
           tableEl.innerHTML = usersTableHtml_(result.users);
           attachUsersTableHandlers_();
-        })
-        .withFailureHandler(function () {
-          tableEl.innerHTML = '<p class="admin-error">Failed to load users.</p>';
+        }, loadUsers_))
+        .withFailureHandler(function (err) {
+          tableEl.innerHTML = '<p class="admin-error">Failed to load users: ' + escapeHtml_(err && err.message) + '</p>';
         })
         .adminListUsers(shellState.token);
     }
@@ -363,7 +394,7 @@
           el.disabled = true;
           google.script.run
             .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
-            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); loadUsers_(); })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); loadUsers_(); })
             .adminSetSuperUser(shellState.token, userId, el.checked);
         });
       });
@@ -374,7 +405,7 @@
           el.disabled = true;
           google.script.run
             .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
-            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); loadUsers_(); })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); loadUsers_(); })
             .adminSetBranchAdmin(shellState.token, userId, el.value);
         });
       });
@@ -387,7 +418,7 @@
           var newStatus = user.accountStatus === 'Active' ? 'Inactive' : 'Active';
           google.script.run
             .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
-            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
             .adminSetAccountStatus(shellState.token, userId, newStatus);
         });
       });
@@ -400,7 +431,7 @@
           if (!window.confirm('Delete ' + user.fullName + ' (' + user.email + ')? This cannot be undone.')) return;
           google.script.run
             .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
-            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
             .adminDeleteUser(shellState.token, userId);
         });
       });
@@ -467,7 +498,7 @@
             document.getElementById('admin-new-user-form').innerHTML = '';
             loadUsers_();
           })
-          .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+          .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
           .adminCreateUser(shellState.token, name, email);
       });
     }
@@ -486,18 +517,19 @@
 
       document.getElementById('admin-back-btn').addEventListener('click', renderUsersList_);
 
+      var gridEl = document.getElementById('admin-access-grid');
+      var retry = function () { openModuleAccess_(userId, fullName); };
       google.script.run
-        .withSuccessHandler(function (result) {
-          var gridEl = document.getElementById('admin-access-grid');
+        .withSuccessHandler(withLoadingWatchdog_(gridEl, function (result) {
           if (!result.success) {
             gridEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
           }
           gridEl.innerHTML = moduleAccessTableHtml_(result.grid);
           attachModuleAccessHandlers_(userId);
-        })
-        .withFailureHandler(function () {
-          document.getElementById('admin-access-grid').innerHTML = '<p class="admin-error">Failed to load module access.</p>';
+        }, retry))
+        .withFailureHandler(function (err) {
+          gridEl.innerHTML = '<p class="admin-error">Failed to load module access: ' + escapeHtml_(err && err.message) + '</p>';
         })
         .adminGetUserModuleAccess(shellState.token, userId);
     }
@@ -580,7 +612,7 @@
               }
               showAdminBanner_('', false);
             })
-            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
             .adminSetModuleAccess(shellState.token, userId, code, currentFields());
         }
 
@@ -612,14 +644,14 @@
         '<h1 class="admin-title">Audit Log</h1>' +
         '<div id="admin-audit-table" class="admin-panel"><p class="admin-muted">Loading…</p></div>';
 
+      var el = document.getElementById('admin-audit-table');
       google.script.run
-        .withSuccessHandler(function (result) {
-          var el = document.getElementById('admin-audit-table');
+        .withSuccessHandler(withLoadingWatchdog_(el, function (result) {
           if (!result.success) {
             el.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
           }
-          if (!result.entries.length) {
+          if (!result.entries || !result.entries.length) {
             el.innerHTML = '<p class="admin-muted">No audit entries yet.</p>';
             return;
           }
@@ -627,9 +659,9 @@
           el.innerHTML = '<table class="admin-table"><thead><tr>' +
             '<th>Timestamp</th><th>User</th><th>Module</th><th>Record Ref#</th><th>Action</th><th>Field Changed</th><th>Old → New</th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table>';
-        })
-        .withFailureHandler(function () {
-          document.getElementById('admin-audit-table').innerHTML = '<p class="admin-error">Failed to load audit log.</p>';
+        }, renderAuditLog_))
+        .withFailureHandler(function (err) {
+          el.innerHTML = '<p class="admin-error">Failed to load audit log: ' + escapeHtml_(err && err.message) + '</p>';
         })
         .adminListAuditLog(shellState.token);
     }
