@@ -2,6 +2,9 @@
 <html>
 <head>
   <base target="_top">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
   <?!= include('Stylesheet') ?>
 </head>
 <body>
@@ -69,40 +72,38 @@
     </div>
   </div>
 
-  <!-- ===================== Shell (placeholder) ===================== -->
+  <!-- ===================== Shell ===================== -->
   <div id="screen-shell" class="shell hidden">
-    <div class="shell-header">
-      <div class="brand">
+    <div class="shell-topbar">
+      <div class="topbar-brand">
         <div class="logo-chip"><img class="brand-logo" alt="Blue Planet Logistics"></div>
-        <div class="brand-title">Integrated Monitoring</div>
+        <div class="topbar-brand-text">
+          <b class="topbar-title">Integrated Monitoring</b>
+          <span class="topbar-sub">Blue Planet Logistics</span>
+        </div>
       </div>
-      <div class="right">
+      <div class="topbar-right">
         <div class="user-chip">
           <div class="avatar" id="shell-user-avatar"></div>
           <div>
             <div class="name" id="shell-user-name"></div>
             <div class="role" id="shell-user-role"></div>
           </div>
+          <button id="logout-btn" class="logout-btn" title="Log out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+          </button>
         </div>
-        <button id="logout-btn" class="logout-btn" title="Log out">&#9099;</button>
       </div>
     </div>
 
+    <div class="shell-switcher-row">
+      <div class="shell-switcher" id="module-switcher"></div>
+    </div>
+    <div class="shell-version-bar"><span id="version-tag"></span></div>
+
     <div class="shell-body">
-      <div class="shell-sidebar">
-        <div class="section-label">Modules</div>
-        <div class="nav-item placeholder">Module navigation coming next</div>
-      </div>
-      <div class="shell-content">
-        <div class="placeholder-card">
-          <h2>You're logged in</h2>
-          <p>
-            This is the shell placeholder landing area. The header module switcher,
-            left sidebar navigation, and Manage User access matrix will be built next —
-            this screen currently only confirms the login flow end-to-end.
-          </p>
-        </div>
-      </div>
+      <div class="shell-sidebar" id="shell-sidebar"></div>
+      <div class="shell-content" id="shell-content"></div>
     </div>
   </div>
 

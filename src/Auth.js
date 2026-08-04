@@ -32,15 +32,31 @@ function sessionCache_() {
   return CacheService.getScriptCache();
 }
 
+/**
+ * Section 4.3 access resolution. Only rule 1 (SuperUser) is wired so far —
+ * Branch Admin and per-module User Module Access lookups (rules 2-3) land
+ * once the Manage User screen and its data model exist.
+ */
+function getAccessibleModules_(user) {
+  var isSuperUser = user['Is SuperUser'] === 'Y';
+  return {
+    modules: isSuperUser ? MODULE_CODES.slice() : [],
+    canManageUsers: isSuperUser
+  };
+}
+
 function createSession_(user) {
   var token = Utilities.getUuid();
+  var access = getAccessibleModules_(user);
   var payload = {
     userId: user['User ID'],
     email: user['Email'],
     fullName: user['Full Name'],
     isSuperUser: user['Is SuperUser'] === 'Y',
     branchAdminOf: user['Branch Admin Of'],
-    mustChangePassword: user['Must Change Password'] === 'Y'
+    mustChangePassword: user['Must Change Password'] === 'Y',
+    accessibleModules: access.modules,
+    canManageUsers: access.canManageUsers
   };
   sessionCache_().put(token, JSON.stringify(payload), CONFIG.SESSION_TTL_SECONDS);
   return { token: token, payload: payload };
@@ -93,8 +109,12 @@ function attemptLogin(email, password) {
       fullName: session.payload.fullName,
       email: session.payload.email,
       isSuperUser: session.payload.isSuperUser,
-      branchAdminOf: session.payload.branchAdminOf
-    }
+      branchAdminOf: session.payload.branchAdminOf,
+      accessibleModules: session.payload.accessibleModules,
+      canManageUsers: session.payload.canManageUsers
+    },
+    moduleUrls: MODULE_URLS,
+    shellVersion: CONFIG.SHELL_VERSION
   };
 }
 
@@ -113,8 +133,12 @@ function validateSession(token) {
       fullName: session.fullName,
       email: session.email,
       isSuperUser: session.isSuperUser,
-      branchAdminOf: session.branchAdminOf
-    }
+      branchAdminOf: session.branchAdminOf,
+      accessibleModules: session.accessibleModules,
+      canManageUsers: session.canManageUsers
+    },
+    moduleUrls: MODULE_URLS,
+    shellVersion: CONFIG.SHELL_VERSION
   };
 }
 

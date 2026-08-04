@@ -63,7 +63,7 @@
           if (result.mustChangePassword) {
             showScreen('forcePw');
           } else {
-            renderShell(result.user);
+            renderShell(result.user, result.moduleUrls, result.shellVersion, result.token);
             showScreen('shell');
           }
         })
@@ -119,7 +119,42 @@
         .changePassword(getToken(), newPassword.value, confirmPassword.value);
     });
 
-    // ---------- Shell (placeholder) ----------
+    // ---------- Module switcher / sidebar / content ----------
+
+    var CODE_META = {
+      TRN: { label: "Transport Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2\"></path><path d=\"M15 18H9\"></path><path d=\"M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14\"></path><circle cx=\"17\" cy=\"18\" r=\"2\"></circle><circle cx=\"7\" cy=\"18\" r=\"2\"></circle></svg>" },
+      VIC: { label: "Vehicle Inspection Checklist", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"8\" height=\"4\" x=\"8\" y=\"2\" rx=\"1\"></rect><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"></path><path d=\"m9 14 2 2 4-4\"></path></svg>" },
+      OSI: { label: "Office Stock Inventory Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73Z\"></path><path d=\"M12 22V12\"></path><polyline points=\"3.29 7 12 12 20.71 7\"></polyline><path d=\"m7.5 4.27 9 5.15\"></path></svg>" },
+      COC: { label: "COC Prefunding Forecast", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"12\" x=\"2\" y=\"6\" rx=\"1\"></rect><circle cx=\"12\" cy=\"12\" r=\"2\"></circle><path d=\"M6 12h.01M18 12h.01\"></path></svg>" },
+      SPC: { label: "SPAC Shipment Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 10.189V14\"></path><path d=\"M12 2v3\"></path><path d=\"M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6\"></path><path d=\"M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 6.98\"></path><path d=\"M4 18a5 5 0 0 0 8 0 5 5 0 0 0 8 0\"></path></svg>" },
+      IPM: { label: "Import Permit Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"></path><path d=\"M4.268 21a2 2 0 0 0 1.727 1H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3\"></path><path d=\"m3 15 2 2 4-4\"></path></svg>" },
+      EFT: { label: "EFT Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"5\" rx=\"1\"></rect><line x1=\"2\" x2=\"22\" y1=\"10\" y2=\"10\"></line></svg>" },
+      CBM: { label: "Container Bond Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"></path><path d=\"M3.27 6.96 12 12.01l8.73-5.05\"></path><path d=\"M12 22.08V12\"></path></svg>" },
+      PCF: { label: "Petty Cash Fund Tracker", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 12V7H5a2 2 0 0 1 0-4h14v4\"></path><path d=\"M3 5v14a2 2 0 0 0 2 2h16v-5\"></path><path d=\"M18 12a2 2 0 0 0 0 4h4v-4Z\"></path></svg>" },
+      VAA: { label: "Vessel Agency Appointments Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"></path><path d=\"M16 2v4\"></path><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"1\"></rect><path d=\"M3 10h18\"></path><path d=\"m9 16 2 2 4-4\"></path></svg>" },
+    };
+    
+    var ADM_META = { label: "Manage User", icon: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path></svg>" };
+
+    // Placeholder section names per module. TRN comes from the design export;
+    // VIC/COC/EFT/CBM/VAA are drawn from their Section 8 clarifications in the
+    // rev3 doc; the remaining modules (OSI, SPC, IPM, PCF) have no tab-level
+    // detail yet, so they fall back to Dashboard/Reports only.
+    var SIDEBAR_SECTIONS = {
+      TRN: ['Dashboard', 'Active Trips', 'Trip History', 'Drivers', 'Reports'],
+      VIC: ['Dashboard', 'Job Confirmation', 'Reports'],
+      OSI: ['Dashboard', 'Reports'],
+      COC: ['Dashboard', 'Forecast', 'Reports'],
+      SPC: ['Dashboard', 'Reports'],
+      IPM: ['Dashboard', 'Reports'],
+      EFT: ['Dashboard', 'Registration', 'Suppliers', 'Reports'],
+      CBM: ['Dashboard', 'Registration', 'Reports'],
+      PCF: ['Dashboard', 'Reports'],
+      VAA: ['Dashboard', 'Job Registration', 'Job Update', 'Reports'],
+      ADM: ['Users', 'Audit Log']
+    };
+
+    var shellState = { modules: [], moduleUrls: {}, canManageUsers: false, activeCode: null, token: null };
 
     function initials(fullName) {
       return String(fullName || '')
@@ -130,10 +165,107 @@
         .join('');
     }
 
-    function renderShell(user) {
+    // Section 1: "any link from the header switcher to a module must pass the
+    // token explicitly as a URL query parameter" since each module is a
+    // separate Apps Script web app (different origin — localStorage can't
+    // cross that boundary).
+    function buildModuleLaunchUrl_(moduleUrl, token) {
+      if (!moduleUrl) return null;
+      var sep = moduleUrl.indexOf('?') === -1 ? '?' : '&';
+      return moduleUrl + sep + 'token=' + encodeURIComponent(token);
+    }
+
+    function modTabHtml_(code, meta, isAdm) {
+      return '<div class="mod-tab' + (isAdm ? ' adm-tab' : '') + '" data-code="' + code + '">' +
+        '<span class="mod-icon">' + meta.icon + '</span>' +
+        '<span class="mod-code">' + code + '</span>' +
+        '<span class="mod-label">' + meta.label + '</span>' +
+        '</div>';
+    }
+
+    function renderSwitcher_() {
+      var el = document.getElementById('module-switcher');
+      var html = '';
+      shellState.modules.forEach(function (code) {
+        html += modTabHtml_(code, CODE_META[code]);
+      });
+      if (shellState.canManageUsers) {
+        html += modTabHtml_('ADM', ADM_META, true);
+      }
+      el.innerHTML = html;
+      Array.prototype.forEach.call(el.querySelectorAll('.mod-tab'), function (tabEl) {
+        tabEl.addEventListener('click', function () {
+          selectModule_(tabEl.getAttribute('data-code'));
+        });
+      });
+    }
+
+    function renderSidebar_(code) {
+      var sections = SIDEBAR_SECTIONS[code] || ['Dashboard'];
+      var sidebarEl = document.getElementById('shell-sidebar');
+      var html = '<div class="sidebar-section-label">' + code + ' \u2014 SECTIONS</div>';
+      sections.forEach(function (name, i) {
+        html += '<div class="side-tab' + (i === 0 ? ' active' : '') + '" data-i="' + i + '"><span>' + name + '</span></div>';
+      });
+      sidebarEl.innerHTML = html;
+      Array.prototype.forEach.call(sidebarEl.querySelectorAll('.side-tab'), function (tabEl) {
+        tabEl.addEventListener('click', function () {
+          Array.prototype.forEach.call(sidebarEl.querySelectorAll('.side-tab'), function (t) {
+            t.classList.toggle('active', t === tabEl);
+          });
+          var sectionName = tabEl.querySelector('span').textContent;
+          renderContent_(code, sectionName);
+        });
+      });
+      renderContent_(code, sections[0]);
+    }
+
+    function renderContent_(code, sectionName) {
+      var contentEl = document.getElementById('shell-content');
+      var meta = code === 'ADM' ? ADM_META : CODE_META[code];
+      var body = code === 'ADM'
+        ? 'The user access matrix and audit log will be built next.'
+        : 'This module has not been connected yet. Once its Apps Script web app is deployed, launching ' + code + ' from the header will pass your session token through automatically via ?token=.';
+      contentEl.innerHTML =
+        '<div class="content-breadcrumb">' + code + ' / ' + sectionName + '</div>' +
+        '<div class="placeholder-card">' +
+        '<h1>' + meta.label + '</h1>' +
+        '<p>' + body + '</p>' +
+        '</div>';
+    }
+
+    // Header switcher click: modules with a configured URL navigate away
+    // (passing the session token); everything else — including ADM, which is
+    // shell-native — stays in the shell and shows its section placeholder.
+    function selectModule_(code) {
+      if (code !== 'ADM') {
+        var launchUrl = buildModuleLaunchUrl_(shellState.moduleUrls[code], shellState.token);
+        if (launchUrl) {
+          window.top.location.href = launchUrl;
+          return;
+        }
+      }
+      shellState.activeCode = code;
+      Array.prototype.forEach.call(document.querySelectorAll('.mod-tab'), function (tabEl) {
+        tabEl.classList.toggle('active', tabEl.getAttribute('data-code') === code);
+      });
+      renderSidebar_(code);
+    }
+
+    function renderShell(user, moduleUrls, shellVersion, token) {
       document.getElementById('shell-user-name').textContent = user.fullName;
       document.getElementById('shell-user-role').textContent = user.isSuperUser ? 'SuperUser' : 'User';
       document.getElementById('shell-user-avatar').textContent = initials(user.fullName);
+      document.getElementById('version-tag').textContent = 'Shell v' + shellVersion;
+
+      shellState.modules = user.accessibleModules || [];
+      shellState.moduleUrls = moduleUrls || {};
+      shellState.canManageUsers = !!user.canManageUsers;
+      shellState.token = token;
+
+      renderSwitcher_();
+      var initial = shellState.modules[0] || (shellState.canManageUsers ? 'ADM' : null);
+      if (initial) selectModule_(initial);
     }
 
     document.getElementById('logout-btn').addEventListener('click', function () {
@@ -162,7 +294,7 @@
             showScreen('forcePw');
             return;
           }
-          renderShell(result.user);
+          renderShell(result.user, result.moduleUrls, result.shellVersion, token);
           showScreen('shell');
         })
         .withFailureHandler(function () {
