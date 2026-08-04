@@ -33,16 +33,49 @@ function sessionCache_() {
 }
 
 /**
- * Section 4.3 access resolution. Only rule 1 (SuperUser) is wired so far —
- * Branch Admin and per-module User Module Access lookups (rules 2-3) land
- * once the Manage User screen and its data model exist.
+ * Section 4.3 access resolution, checked on every module load (here: on
+ * every login / session resume, since that's what drives the header
+ * switcher).
+ *   1. SuperUser -> full access to everything, stop.
+ *   2. Else, Branch Admin Of (not "None") -> full access to every
+ *      branch-split module, stop (company-wide modules are NOT covered by
+ *      this meta-grant — see Section 5 / MODULE_BRANCH_SCOPE).
+ *   3. Else, look up User Module Access per module -> a row with a Role
+ *      means that module is visible.
+ *   4. Else, no row found -> module does not appear in the switcher at all.
+ *
+ * Manage User (ADM) access is SuperUser-only for now — Section 3's "Admin
+ * can manage users for that module" (a module-scoped view) isn't built yet.
  */
 function getAccessibleModules_(user) {
   var isSuperUser = user['Is SuperUser'] === 'Y';
-  return {
-    modules: isSuperUser ? MODULE_CODES.slice() : [],
-    canManageUsers: isSuperUser
-  };
+  if (isSuperUser) {
+    return { modules: MODULE_CODES.slice(), canManageUsers: true };
+  }
+
+  var branchAdminOf = user['Branch Admin Of'];
+  if (branchAdminOf && branchAdminOf !== 'None') {
+    var branchModules = MODULE_CODES.filter(function (code) {
+      return MODULE_BRANCH_SCOPE[code] === 'branch-split';
+    });
+    // Company-wide modules still need an explicit per-module grant even for
+    // a Branch Admin, so fall through to the User Module Access lookup for
+    // those.
+    var companyWideCodes = MODULE_CODES.filter(function (code) {
+      return MODULE_BRANCH_SCOPE[code] === 'company-wide';
+    });
+    var accessMap = getUserModuleAccessMap_(user['User ID']);
+    var grantedCompanyWide = companyWideCodes.filter(function (code) {
+      return accessMap[code] && accessMap[code]['Role'];
+    });
+    return { modules: branchModules.concat(grantedCompanyWide), canManageUsers: false };
+  }
+
+  var moduleAccessMap = getUserModuleAccessMap_(user['User ID']);
+  var grantedModules = MODULE_CODES.filter(function (code) {
+    return moduleAccessMap[code] && moduleAccessMap[code]['Role'];
+  });
+  return { modules: grantedModules, canManageUsers: false };
 }
 
 function createSession_(user) {

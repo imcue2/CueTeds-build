@@ -136,6 +136,16 @@
     
     var ADM_META = { label: "Manage User", icon: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path></svg>" };
 
+    // Kept in sync with Config.js — Apps Script client/server JS run in
+    // separate contexts, so these can't be shared directly.
+    var BRANCH_ADMIN_OPTIONS = ['None', 'POM', 'LAE', 'Both'];
+    var BRANCH_SCOPE_OPTIONS = ['POM', 'LAE', 'Both', 'N/A'];
+    var MODULE_BRANCH_SCOPE = {
+      TRN: 'branch-split', VIC: 'branch-split', OSI: 'branch-split', COC: 'branch-split',
+      SPC: 'company-wide', IPM: 'branch-split', EFT: 'branch-split', CBM: 'branch-split',
+      PCF: 'branch-split', VAA: 'company-wide'
+    };
+
     // Placeholder section names per module. TRN comes from the design export;
     // VIC/COC/EFT/CBM/VAA are drawn from their Section 8 clarifications in the
     // rev3 doc; the remaining modules (OSI, SPC, IPM, PCF) have no tab-level
@@ -221,11 +231,13 @@
     }
 
     function renderContent_(code, sectionName) {
+      if (code === 'ADM') {
+        renderManageUser_(sectionName);
+        return;
+      }
       var contentEl = document.getElementById('shell-content');
-      var meta = code === 'ADM' ? ADM_META : CODE_META[code];
-      var body = code === 'ADM'
-        ? 'The user access matrix and audit log will be built next.'
-        : 'This module has not been connected yet. Once its Apps Script web app is deployed, launching ' + code + ' from the header will pass your session token through automatically via ?token=.';
+      var meta = CODE_META[code];
+      var body = 'This module has not been connected yet. Once its Apps Script web app is deployed, launching ' + code + ' from the header will pass your session token through automatically via ?token=.';
       contentEl.innerHTML =
         '<div class="content-breadcrumb">' + code + ' / ' + sectionName + '</div>' +
         '<div class="placeholder-card">' +
@@ -233,6 +245,407 @@
         '<p>' + body + '</p>' +
         '</div>';
     }
+
+    // ---------- Manage User (ADM) ----------
+
+    function escapeHtml_(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function formatDate_(val) {
+      if (!val) return '—';
+      var d = new Date(val);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleString();
+    }
+
+    var adminState = { users: [], currentUserId: null };
+
+    function renderManageUser_(sectionName) {
+      if (sectionName === 'Audit Log') {
+        renderAuditLog_();
+      } else {
+        renderUsersList_();
+      }
+    }
+
+    function adminContentShell_(bodyHtml) {
+      var contentEl = document.getElementById('shell-content');
+      contentEl.innerHTML =
+        '<div class="content-breadcrumb">ADM / ' + (adminState.currentUserId ? 'Users / Module Access' : 'Users') + '</div>' +
+        '<div class="admin-panel">' + bodyHtml + '</div>';
+    }
+
+    // ---- Users list ----
+
+    function renderUsersList_() {
+      adminState.currentUserId = null;
+      var contentEl = document.getElementById('shell-content');
+      contentEl.innerHTML =
+        '<div class="content-breadcrumb">ADM / Users</div>' +
+        '<h1 class="admin-title">Manage User</h1>' +
+        '<div id="admin-banner"></div>' +
+        '<div class="admin-panel">' +
+        '<div class="admin-panel-head">' +
+        '<span>Users</span>' +
+        '<button id="admin-new-user-btn" class="btn-small">+ New User</button>' +
+        '</div>' +
+        '<div id="admin-new-user-form"></div>' +
+        '<div id="admin-users-table"></div>' +
+        '</div>';
+
+      document.getElementById('admin-new-user-btn').addEventListener('click', function () {
+        document.getElementById('admin-new-user-form').innerHTML = newUserFormHtml_();
+        attachNewUserFormHandlers_();
+      });
+
+      loadUsers_();
+    }
+
+    function loadUsers_() {
+      var tableEl = document.getElementById('admin-users-table');
+      if (!tableEl) return;
+      tableEl.innerHTML = '<p class="admin-muted">Loading…</p>';
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (!result.success) {
+            tableEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
+            return;
+          }
+          adminState.users = result.users;
+          tableEl.innerHTML = usersTableHtml_(result.users);
+          attachUsersTableHandlers_();
+        })
+        .withFailureHandler(function () {
+          tableEl.innerHTML = '<p class="admin-error">Failed to load users.</p>';
+        })
+        .adminListUsers(shellState.token);
+    }
+
+    function usersTableHtml_(users) {
+      if (!users.length) return '<p class="admin-muted">No users yet.</p>';
+      var rows = users.map(usersTableRowHtml_).join('');
+      return '<table class="admin-table"><thead><tr>' +
+        '<th>Name</th><th>Email</th><th>Status</th><th>SuperUser</th><th>Branch Admin</th><th></th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function usersTableRowHtml_(u) {
+      var branchOptions = BRANCH_ADMIN_OPTIONS.map(function (opt) {
+        return '<option value="' + opt + '"' + (opt === u.branchAdminOf ? ' selected' : '') + '>' + opt + '</option>';
+      }).join('');
+      var statusLabel = u.accountStatus === 'Active' ? 'Deactivate' : 'Reactivate';
+      var mustChange = u.mustChangePassword ? ' <span class="admin-pill">must change password</span>' : '';
+
+      return '<tr data-user-id="' + u.userId + '">' +
+        '<td>' + escapeHtml_(u.fullName) + mustChange + '</td>' +
+        '<td>' + escapeHtml_(u.email) + '</td>' +
+        '<td><span class="admin-status admin-status-' + u.accountStatus.toLowerCase() + '">' + u.accountStatus + '</span></td>' +
+        '<td><input type="checkbox" class="admin-superuser-toggle" ' + (u.isSuperUser ? 'checked' : '') + '></td>' +
+        '<td><select class="admin-branch-admin-select">' + branchOptions + '</select></td>' +
+        '<td class="admin-row-actions">' +
+        '<button class="btn-link admin-edit-access-btn">Module Access</button>' +
+        '<button class="btn-link admin-status-btn">' + statusLabel + '</button>' +
+        '<button class="btn-link admin-danger admin-delete-btn">Delete</button>' +
+        '</td></tr>';
+    }
+
+    function attachUsersTableHandlers_() {
+      var tableEl = document.getElementById('admin-users-table');
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-superuser-toggle'), function (el) {
+        el.addEventListener('change', function () {
+          var userId = el.closest('tr').getAttribute('data-user-id');
+          el.disabled = true;
+          google.script.run
+            .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
+            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); loadUsers_(); })
+            .adminSetSuperUser(shellState.token, userId, el.checked);
+        });
+      });
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-branch-admin-select'), function (el) {
+        el.addEventListener('change', function () {
+          var userId = el.closest('tr').getAttribute('data-user-id');
+          el.disabled = true;
+          google.script.run
+            .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
+            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); loadUsers_(); })
+            .adminSetBranchAdmin(shellState.token, userId, el.value);
+        });
+      });
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-status-btn'), function (el) {
+        el.addEventListener('click', function () {
+          var row = el.closest('tr');
+          var userId = row.getAttribute('data-user-id');
+          var user = adminState.users.filter(function (u) { return u.userId === userId; })[0];
+          var newStatus = user.accountStatus === 'Active' ? 'Inactive' : 'Active';
+          google.script.run
+            .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
+            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .adminSetAccountStatus(shellState.token, userId, newStatus);
+        });
+      });
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-delete-btn'), function (el) {
+        el.addEventListener('click', function () {
+          var row = el.closest('tr');
+          var userId = row.getAttribute('data-user-id');
+          var user = adminState.users.filter(function (u) { return u.userId === userId; })[0];
+          if (!window.confirm('Delete ' + user.fullName + ' (' + user.email + ')? This cannot be undone.')) return;
+          google.script.run
+            .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
+            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .adminDeleteUser(shellState.token, userId);
+        });
+      });
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-edit-access-btn'), function (el) {
+        el.addEventListener('click', function () {
+          var row = el.closest('tr');
+          var userId = row.getAttribute('data-user-id');
+          var user = adminState.users.filter(function (u) { return u.userId === userId; })[0];
+          openModuleAccess_(userId, user.fullName);
+        });
+      });
+    }
+
+    function handleAdminResult_(result, onSuccess) {
+      if (!result.success) {
+        showAdminBanner_(result.message, true);
+        loadUsers_();
+        return;
+      }
+      showAdminBanner_('', false);
+      if (onSuccess) onSuccess();
+    }
+
+    function showAdminBanner_(message, isError) {
+      var el = document.getElementById('admin-banner');
+      if (!el) return;
+      if (!message) {
+        el.innerHTML = '';
+        return;
+      }
+      el.innerHTML = '<div class="admin-banner' + (isError ? ' admin-banner-error' : '') + '">' + escapeHtml_(message) + '</div>';
+    }
+
+    // ---- New user form ----
+
+    function newUserFormHtml_() {
+      return '<div class="admin-inline-form">' +
+        '<input type="text" id="new-user-name" placeholder="Full name">' +
+        '<input type="email" id="new-user-email" placeholder="name@blueplanetlogistics.com">' +
+        '<button id="new-user-save-btn" class="btn-small btn-small-primary">Create</button>' +
+        '<button id="new-user-cancel-btn" class="btn-small">Cancel</button>' +
+        '</div>';
+    }
+
+    function attachNewUserFormHandlers_() {
+      document.getElementById('new-user-cancel-btn').addEventListener('click', function () {
+        document.getElementById('admin-new-user-form').innerHTML = '';
+      });
+      document.getElementById('new-user-save-btn').addEventListener('click', function () {
+        var name = document.getElementById('new-user-name').value;
+        var email = document.getElementById('new-user-email').value;
+        google.script.run
+          .withSuccessHandler(function (result) {
+            if (!result.success) {
+              showAdminBanner_(result.message, true);
+              return;
+            }
+            showAdminBanner_(
+              'User created. Temporary password for ' + result.user.fullName + ': ' + result.tempPassword +
+              ' (single-use — share this with them directly).',
+              false
+            );
+            document.getElementById('admin-new-user-form').innerHTML = '';
+            loadUsers_();
+          })
+          .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+          .adminCreateUser(shellState.token, name, email);
+      });
+    }
+
+    // ---- Module access grid ----
+
+    function openModuleAccess_(userId, fullName) {
+      adminState.currentUserId = userId;
+      var contentEl = document.getElementById('shell-content');
+      contentEl.innerHTML =
+        '<div class="content-breadcrumb">ADM / Users / ' + escapeHtml_(fullName) + '</div>' +
+        '<h1 class="admin-title">Module Access — ' + escapeHtml_(fullName) + '</h1>' +
+        '<button id="admin-back-btn" class="btn-link">← Back to Users</button>' +
+        '<div id="admin-banner"></div>' +
+        '<div id="admin-access-grid" class="admin-panel"><p class="admin-muted">Loading…</p></div>';
+
+      document.getElementById('admin-back-btn').addEventListener('click', renderUsersList_);
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          var gridEl = document.getElementById('admin-access-grid');
+          if (!result.success) {
+            gridEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
+            return;
+          }
+          gridEl.innerHTML = moduleAccessTableHtml_(result.grid);
+          attachModuleAccessHandlers_(userId);
+        })
+        .withFailureHandler(function () {
+          document.getElementById('admin-access-grid').innerHTML = '<p class="admin-error">Failed to load module access.</p>';
+        })
+        .adminGetUserModuleAccess(shellState.token, userId);
+    }
+
+    function moduleAccessTableHtml_(grid) {
+      var rows = grid.map(moduleAccessRowHtml_).join('');
+      return '<table class="admin-table"><thead><tr>' +
+        '<th>Module</th><th>Role</th><th>Branch Scope</th><th>Tab Scope</th><th>Dashboard Scope</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function moduleAccessRowHtml_(row) {
+      var meta = CODE_META[row.code];
+      var label = '<span class="mod-code mod-code-light">' + row.code + '</span> ' + meta.label;
+
+      if (row.locked) {
+        return '<tr data-code="' + row.code + '">' +
+          '<td>' + label + '</td>' +
+          '<td colspan="4" class="admin-locked">Full Access — via ' + escapeHtml_(row.lockReason) + '</td>' +
+          '</tr>';
+      }
+
+      var roleOptions = ['', 'Admin'].concat(row.code === 'OSI' ? ['Supervisor'] : []).concat(['Staff', 'View']);
+      var roleSelect = '<select class="admin-role-select">' + roleOptions.map(function (opt) {
+        return '<option value="' + opt + '"' + (opt === row.role ? ' selected' : '') + '>' + (opt || '— No access —') + '</option>';
+      }).join('') + '</select>';
+
+      var branchDisabled = !(row.role === 'Staff' && row.branchScopeType === 'branch-split');
+      var branchOptions = '<option value=""' + (row.branchScope ? '' : ' selected') + ' disabled>— Select —</option>' +
+        BRANCH_SCOPE_OPTIONS.map(function (opt) {
+          return '<option value="' + opt + '"' + (opt === row.branchScope ? ' selected' : '') + '>' + opt + '</option>';
+        }).join('');
+      var branchSelect = '<select class="admin-branchscope-select"' + (branchDisabled ? ' disabled' : '') + '>' + branchOptions + '</select>';
+
+      var tabDisabled = row.role !== 'Staff';
+      var tabInput = '<input type="text" class="admin-tabscope-input" placeholder="blank = all tabs" value="' +
+        escapeHtml_(row.tabScope) + '"' + (tabDisabled ? ' disabled' : '') + '>';
+
+      var dashDisabled = row.role !== 'View';
+      var dashInput = '<input type="text" class="admin-dashscope-input" placeholder="blank = all dashboards" value="' +
+        escapeHtml_(row.dashboardScope) + '"' + (dashDisabled ? ' disabled' : '') + '>';
+
+      return '<tr data-code="' + row.code + '">' +
+        '<td>' + label + '</td>' +
+        '<td>' + roleSelect + '</td>' +
+        '<td>' + branchSelect + '</td>' +
+        '<td>' + tabInput + '</td>' +
+        '<td>' + dashInput + '</td>' +
+        '</tr>';
+    }
+
+    function attachModuleAccessHandlers_(userId) {
+      var gridEl = document.getElementById('admin-access-grid');
+
+      Array.prototype.forEach.call(gridEl.querySelectorAll('tr[data-code]'), function (rowEl) {
+        var roleSelect = rowEl.querySelector('.admin-role-select');
+        if (!roleSelect) return; // locked row, nothing to wire
+
+        var code = rowEl.getAttribute('data-code');
+        var branchSelect = rowEl.querySelector('.admin-branchscope-select');
+        var tabInput = rowEl.querySelector('.admin-tabscope-input');
+        var dashInput = rowEl.querySelector('.admin-dashscope-input');
+
+        function currentFields() {
+          return {
+            role: roleSelect.value,
+            branchScope: branchSelect.value,
+            tabScope: tabInput.value,
+            dashboardScope: dashInput.value
+          };
+        }
+
+        function save() {
+          google.script.run
+            .withSuccessHandler(function (result) {
+              if (!result.success) {
+                showAdminBanner_(result.message, true);
+                openModuleAccess_(userId, adminState.users.filter(function (u) { return u.userId === userId; })[0].fullName);
+                return;
+              }
+              showAdminBanner_('', false);
+            })
+            .withFailureHandler(function () { showAdminBanner_('Something went wrong. Please try again.', true); })
+            .adminSetModuleAccess(shellState.token, userId, code, currentFields());
+        }
+
+        roleSelect.addEventListener('change', function () {
+          var isStaff = roleSelect.value === 'Staff' && MODULE_BRANCH_SCOPE[code] === 'branch-split';
+          var isView = roleSelect.value === 'View';
+          branchSelect.disabled = !isStaff;
+          tabInput.disabled = !isStaff;
+          dashInput.disabled = !isView;
+          // Clear values that no longer apply so a stale value from a
+          // previous role isn't silently saved alongside the new one.
+          if (!isStaff) { branchSelect.value = 'N/A'; tabInput.value = ''; }
+          if (!isView) { dashInput.value = ''; }
+          save();
+        });
+        branchSelect.addEventListener('change', save);
+        tabInput.addEventListener('blur', save);
+        dashInput.addEventListener('blur', save);
+      });
+    }
+
+    // ---- Audit log ----
+
+    function renderAuditLog_() {
+      adminState.currentUserId = null;
+      var contentEl = document.getElementById('shell-content');
+      contentEl.innerHTML =
+        '<div class="content-breadcrumb">ADM / Audit Log</div>' +
+        '<h1 class="admin-title">Audit Log</h1>' +
+        '<div id="admin-audit-table" class="admin-panel"><p class="admin-muted">Loading…</p></div>';
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          var el = document.getElementById('admin-audit-table');
+          if (!result.success) {
+            el.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
+            return;
+          }
+          if (!result.entries.length) {
+            el.innerHTML = '<p class="admin-muted">No audit entries yet.</p>';
+            return;
+          }
+          var rows = result.entries.map(auditLogRowHtml_).join('');
+          el.innerHTML = '<table class="admin-table"><thead><tr>' +
+            '<th>Timestamp</th><th>User</th><th>Module</th><th>Record Ref#</th><th>Action</th><th>Field Changed</th><th>Old → New</th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table>';
+        })
+        .withFailureHandler(function () {
+          document.getElementById('admin-audit-table').innerHTML = '<p class="admin-error">Failed to load audit log.</p>';
+        })
+        .adminListAuditLog(shellState.token);
+    }
+
+    function auditLogRowHtml_(e) {
+      return '<tr>' +
+        '<td>' + formatDate_(e['Timestamp']) + '</td>' +
+        '<td>' + escapeHtml_(e['User']) + '</td>' +
+        '<td>' + escapeHtml_(e['Module']) + '</td>' +
+        '<td>' + escapeHtml_(e['Record Ref#']) + '</td>' +
+        '<td>' + escapeHtml_(e['Action']) + '</td>' +
+        '<td>' + escapeHtml_(e['Field Changed']) + '</td>' +
+        '<td>' + escapeHtml_(e['Old Value']) + ' → ' + escapeHtml_(e['New Value']) + '</td>' +
+        '</tr>';
+    }
+
 
     // Header switcher click: modules with a configured URL navigate away
     // (passing the session token); everything else — including ADM, which is
@@ -265,7 +678,20 @@
 
       renderSwitcher_();
       var initial = shellState.modules[0] || (shellState.canManageUsers ? 'ADM' : null);
-      if (initial) selectModule_(initial);
+      if (initial) {
+        selectModule_(initial);
+      } else {
+        renderEmptyAccessState_();
+      }
+    }
+
+    function renderEmptyAccessState_() {
+      document.getElementById('shell-sidebar').innerHTML = '';
+      document.getElementById('shell-content').innerHTML =
+        '<div class="placeholder-card">' +
+        '<h1>No module access yet</h1>' +
+        '<p>You don\'t have access to any modules yet. Contact your administrator.</p>' +
+        '</div>';
     }
 
     document.getElementById('logout-btn').addEventListener('click', function () {

@@ -75,6 +75,48 @@ function findUserById_(userId) {
   return null;
 }
 
+function listAllUsers_() {
+  var sheet = getUsersSheet_();
+  var colMap = getUsersColumnMap_(sheet);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  return data.map(function (rowValues, i) {
+    var user = rowToUser_(rowValues, colMap);
+    user._rowNumber = i + 2;
+    return user;
+  });
+}
+
+function countActiveSuperUsers_() {
+  return listAllUsers_().filter(function (u) {
+    return u['Is SuperUser'] === 'Y' && u['Account Status'] === 'Active';
+  }).length;
+}
+
+// Section 3.1: blocks deactivating, deleting, or demoting a SuperUser if it
+// would leave zero active SuperUsers. Pass the user's CURRENT state and the
+// state being applied; returns an error message, or null if the change is safe.
+function checkLastSuperUserGuard_(user, changes) {
+  var isCurrentlyActiveSuperUser = user['Is SuperUser'] === 'Y' && user['Account Status'] === 'Active';
+  if (!isCurrentlyActiveSuperUser) return null;
+
+  var willStillBeSuperUser = ('isSuperUser' in changes) ? changes.isSuperUser : true;
+  var willStillBeActive = ('accountStatus' in changes) ? changes.accountStatus === 'Active' : true;
+  var willStillCount = willStillBeSuperUser && willStillBeActive;
+
+  if (!willStillCount && countActiveSuperUsers_() <= 1) {
+    return 'This is the last active SuperUser — the system must always retain at least one.';
+  }
+  return null;
+}
+
+function deleteUserRow_(rowNumber) {
+  var sheet = getUsersSheet_();
+  sheet.deleteRow(rowNumber);
+}
+
 // Updates specific fields (by column name) on a user's row.
 function updateUserFields_(rowNumber, fields) {
   var sheet = getUsersSheet_();
@@ -128,6 +170,11 @@ function setupUsersDatabase() {
   props.setProperty('USERS_SHEET_ID', ss.getId());
 
   var seed = seedInitialSuperUser_(sheet);
+
+  // Section 4.2 / 6 — lay out the access matrix and audit log sheets now so
+  // Manage User has somewhere to write from the start.
+  getModuleAccessSheet_();
+  getAuditLogSheet_();
 
   Logger.log('Users database created: ' + ss.getUrl());
   Logger.log('Seed SuperUser email: ' + seed.email);
