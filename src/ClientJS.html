@@ -286,8 +286,9 @@
         try {
           onSuccess(result);
         } catch (err) {
-          containerEl.innerHTML = '<p class="admin-error">Something went wrong rendering this panel. ' +
-            '<button class="btn-link" id="admin-watchdog-retry">Retry</button></p>';
+          console.error('Panel render error:', err);
+          containerEl.innerHTML = '<p class="admin-error">Render error: ' + escapeHtml_(err && (err.message || String(err))) +
+            ' <button class="btn-link" id="admin-watchdog-retry">Retry</button></p>';
           var retryBtn = document.getElementById('admin-watchdog-retry');
           if (retryBtn) retryBtn.addEventListener('click', retryFn);
         }
@@ -347,8 +348,9 @@
             tableEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
           }
-          adminState.users = result.users;
-          tableEl.innerHTML = usersTableHtml_(result.users);
+          var users = Array.isArray(result.users) ? result.users : [];
+          adminState.users = users;
+          tableEl.innerHTML = usersTableHtml_(users);
           attachUsersTableHandlers_();
         }, loadUsers_))
         .withFailureHandler(function (err) {
@@ -525,7 +527,7 @@
             gridEl.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
           }
-          gridEl.innerHTML = moduleAccessTableHtml_(result.grid);
+          gridEl.innerHTML = moduleAccessTableHtml_(Array.isArray(result.grid) ? result.grid : []);
           attachModuleAccessHandlers_(userId);
         }, retry))
         .withFailureHandler(function (err) {
@@ -651,11 +653,12 @@
             el.innerHTML = '<p class="admin-error">' + escapeHtml_(result.message) + '</p>';
             return;
           }
-          if (!result.entries || !result.entries.length) {
+          var entries = Array.isArray(result.entries) ? result.entries : [];
+          if (!entries.length) {
             el.innerHTML = '<p class="admin-muted">No audit entries yet.</p>';
             return;
           }
-          var rows = result.entries.map(auditLogRowHtml_).join('');
+          var rows = entries.map(auditLogRowHtml_).join('');
           el.innerHTML = '<table class="admin-table"><thead><tr>' +
             '<th>Timestamp</th><th>User</th><th>Module</th><th>Record Ref#</th><th>Action</th><th>Field Changed</th><th>Old → New</th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table>';
