@@ -1,4 +1,6 @@
-// Authentication, password hashing, and CacheService-backed sessions.
+// Authentication, password hashing, and sheet-backed sessions (see
+// SessionsRepo.js — CacheService is scoped per Apps Script project, which
+// would make a session unreadable by a separately-deployed module).
 
 function generateSalt_() {
   return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
@@ -26,10 +28,6 @@ function safeEquals_(a, b) {
     diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return diff === 0;
-}
-
-function sessionCache_() {
-  return CacheService.getScriptCache();
 }
 
 /**
@@ -91,23 +89,24 @@ function createSession_(user) {
     accessibleModules: access.modules,
     canManageUsers: access.canManageUsers
   };
-  sessionCache_().put(token, JSON.stringify(payload), CONFIG.SESSION_TTL_SECONDS);
+  createSessionRow_(token, user['User ID'], payload, CONFIG.SESSION_TTL_SECONDS);
   return { token: token, payload: payload };
 }
 
 function readSession_(token) {
-  if (!token) return null;
-  var raw = sessionCache_().get(token);
-  if (!raw) return null;
+  var row = findSessionRow_(token);
+  if (!row) return null;
   try {
-    return JSON.parse(raw);
+    return JSON.parse(row.payload);
   } catch (e) {
     return null;
   }
 }
 
 function writeSession_(token, payload) {
-  sessionCache_().put(token, JSON.stringify(payload), CONFIG.SESSION_TTL_SECONDS);
+  var row = findSessionRow_(token);
+  if (!row) return;
+  updateSessionPayloadRow_(row.rowNumber, payload, CONFIG.SESSION_TTL_SECONDS);
 }
 
 /**
@@ -213,7 +212,8 @@ function changePassword(token, newPassword, confirmPassword) {
 
 function logout(token) {
   if (token) {
-    sessionCache_().remove(token);
+    var row = findSessionRow_(token);
+    if (row) deleteSessionRow_(row.rowNumber);
   }
   return { success: true };
 }

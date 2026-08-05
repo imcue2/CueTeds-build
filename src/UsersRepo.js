@@ -171,10 +171,11 @@ function setupUsersDatabase() {
 
   var seed = seedInitialSuperUser_(sheet);
 
-  // Section 4.2 / 6 — lay out the access matrix and audit log sheets now so
-  // Manage User has somewhere to write from the start.
+  // Section 4.2 / 6 — lay out the access matrix, audit log, and sessions
+  // sheets now so Manage User and login have somewhere to write from the start.
   getModuleAccessSheet_();
   getAuditLogSheet_();
+  getSessionsSheet_();
 
   Logger.log('Users database created: ' + ss.getUrl());
   Logger.log('Seed SuperUser email: ' + seed.email);

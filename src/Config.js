@@ -4,7 +4,7 @@ var CONFIG = {
   USERS_SHEET_NAME: 'Users',
   DRIVE_FOLDER_NAME: 'BPL Integrated Monitoring',
   USERS_FILE_NAME: 'BPL Integrated Monitoring — Users',
-  SESSION_TTL_SECONDS: 21600, // 6 hours — CacheService's maximum TTL.
+  SESSION_TTL_SECONDS: 21600, // 6 hours.
   MIN_PASSWORD_LENGTH: 8,
   SEED_SUPERUSER_EMAIL: 'admin@blueplanetlogistics.com',
   COMPANY_EMAIL_DOMAIN: '@blueplanetlogistics.com',
@@ -91,3 +91,11 @@ var AUDIT_LOG_COLUMNS = [
   'Old Value',
   'New Value'
 ];
+
+// Section 1 (hub-and-spoke): sessions live in a sheet, not CacheService,
+// because CacheService is scoped per Apps Script project — a token created
+// by the shell couldn't be read by a separately-deployed module. Any future
+// module that knows the Users spreadsheet ID can validate an incoming
+// token the same way this file does.
+var SESSIONS_SHEET_NAME = 'Sessions';
+var SESSIONS_COLUMNS = ['Token', 'User ID', 'Payload', 'Created At', 'Expires At'];
