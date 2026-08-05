@@ -35,7 +35,8 @@ var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF
 // (Section 1: hub-and-spoke). Empty string = not yet connected — the header
 // switcher will show a placeholder for that module instead of navigating.
 var MODULE_URLS = {
-  TRN: '', VIC: '', OSI: '', COC: '', SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: ''
+  TRN: '', VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
+  SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: ''
 };
 
 // Branch scoping per module (Section 5). Branch Admin's meta-grant only
