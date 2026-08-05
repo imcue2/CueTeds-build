@@ -12,6 +12,17 @@ function actingUserLabel_(session) {
   return session.fullName + ' <' + session.email + '>';
 }
 
+// google.script.run can fail to round-trip a Date object nested inside an
+// array of objects (unlike a bare top-level Date, which is fine) — the RPC
+// resolves with a null result on the client instead of the real payload.
+// Stringify dates before they cross the bridge.
+function dateToString_(val) {
+  if (!val) return '';
+  var d = (val instanceof Date) ? val : new Date(val);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString();
+}
+
 function publicUser_(user) {
   return {
     userId: user['User ID'],
@@ -21,8 +32,8 @@ function publicUser_(user) {
     isSuperUser: user['Is SuperUser'] === 'Y',
     branchAdminOf: user['Branch Admin Of'],
     mustChangePassword: user['Must Change Password'] === 'Y',
-    createdDate: user['Created Date'],
-    lastLogin: user['Last Login']
+    createdDate: dateToString_(user['Created Date']),
+    lastLogin: dateToString_(user['Last Login'])
   };
 }
 

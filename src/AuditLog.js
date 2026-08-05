@@ -52,7 +52,10 @@ function listAuditLog_(limit) {
   var out = data.map(function (row) {
     var entry = {};
     AUDIT_LOG_COLUMNS.forEach(function (col, i) {
-      entry[col] = row[i];
+      // google.script.run can fail to round-trip a Date object nested inside
+      // an array of objects (a bare top-level Date is fine) — stringify it
+      // before it crosses the bridge.
+      entry[col] = (col === 'Timestamp' && row[i] instanceof Date) ? row[i].toISOString() : row[i];
     });
     return entry;
   });
