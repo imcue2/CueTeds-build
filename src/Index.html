@@ -75,7 +75,7 @@
   <!-- ===================== Shell ===================== -->
   <div id="screen-shell" class="shell hidden">
     <div class="shell-topbar">
-      <div class="topbar-brand">
+      <div class="topbar-brand" id="topbar-brand" title="Back to modules">
         <div class="logo-chip"><img class="brand-logo" alt="Blue Planet Logistics"></div>
         <div class="topbar-brand-text">
           <b class="topbar-title">Integrated Monitoring</b>
@@ -96,15 +96,9 @@
       </div>
     </div>
 
-    <div class="shell-switcher-row">
-      <div class="shell-switcher" id="module-switcher"></div>
-    </div>
     <div class="shell-version-bar"><span id="version-tag"></span></div>
 
-    <div class="shell-body">
-      <div class="shell-sidebar" id="shell-sidebar"></div>
-      <div class="shell-content" id="shell-content"></div>
-    </div>
+    <div class="shell-main" id="shell-main"></div>
   </div>
 
   <?!= include('ClientJS') ?>

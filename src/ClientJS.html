@@ -146,25 +146,26 @@
       PCF: 'branch-split', VAA: 'company-wide'
     };
 
-    // Placeholder section names per module. TRN comes from the design export;
-    // VIC/COC/EFT/CBM/VAA are drawn from their Section 8 clarifications in the
-    // rev3 doc; the remaining modules (OSI, SPC, IPM, PCF) have no tab-level
-    // detail yet, so they fall back to Dashboard/Reports only.
-    var SIDEBAR_SECTIONS = {
-      TRN: ['Dashboard', 'Active Trips', 'Trip History', 'Drivers', 'Reports'],
-      VIC: ['Dashboard', 'Job Confirmation', 'Reports'],
-      OSI: ['Dashboard', 'Reports'],
-      COC: ['Dashboard', 'Forecast', 'Reports'],
-      SPC: ['Dashboard', 'Reports'],
-      IPM: ['Dashboard', 'Reports'],
-      EFT: ['Dashboard', 'Registration', 'Suppliers', 'Reports'],
-      CBM: ['Dashboard', 'Registration', 'Reports'],
-      PCF: ['Dashboard', 'Reports'],
-      VAA: ['Dashboard', 'Job Registration', 'Job Update', 'Reports'],
-      ADM: ['Users', 'Audit Log']
+    // Short one-line descriptions for each module's launcher card.
+    var MODULE_DESCRIPTIONS = {
+      TRN: 'Track trips, drivers, and delivery status across branches.',
+      VIC: 'Log and resolve vehicle inspection items before release.',
+      OSI: 'Monitor office stock levels and inventory movement.',
+      COC: 'Track prefunding requests and PPA balance across jobs.',
+      SPC: 'Monitor SPAC shipments.',
+      IPM: 'Track import permit status and remarks.',
+      EFT: 'Track EFT payment registrations through to completion.',
+      CBM: 'Track container bond registrations and job numbers.',
+      PCF: 'Track petty cash fund disbursements and balances.',
+      VAA: 'Track vessel agency appointment jobs from registration to closure.'
     };
 
-    var shellState = { modules: [], moduleUrls: {}, canManageUsers: false, activeCode: null, token: null };
+    // Manage User's own sidebar sub-navigation — the only place the shell
+    // still has a sidebar, since every other module is a full redirect to
+    // its own separately-deployed app, not something to navigate inside.
+    var SIDEBAR_SECTIONS = { ADM: ['Users', 'Audit Log'] };
+
+    var shellState = { modules: [], moduleUrls: {}, canManageUsers: false, token: null };
 
     function initials(fullName) {
       return String(fullName || '')
@@ -185,65 +186,104 @@
       return moduleUrl + sep + 'token=' + encodeURIComponent(token);
     }
 
-    function modTabHtml_(code, meta, isAdm) {
-      return '<div class="mod-tab' + (isAdm ? ' adm-tab' : '') + '" data-code="' + code + '">' +
+    // ---------- Home / launcher ----------
+
+    function moduleCardHtml_(code) {
+      var meta = CODE_META[code];
+      var connected = !!shellState.moduleUrls[code];
+      var cls = 'module-card' + (connected ? '' : ' module-card-disabled');
+      var desc = connected ? (MODULE_DESCRIPTIONS[code] || '') : 'Not yet connected.';
+      return '<div class="' + cls + '"' + (connected ? ' data-code="' + code + '"' : '') + '>' +
+        '<div class="module-card-top">' +
         '<span class="mod-icon">' + meta.icon + '</span>' +
-        '<span class="mod-code">' + code + '</span>' +
-        '<span class="mod-label">' + meta.label + '</span>' +
+        '<span class="mod-code-light">' + code + '</span>' +
+        '</div>' +
+        '<div class="module-card-title">' + meta.label + '</div>' +
+        '<div class="module-card-desc">' + desc + '</div>' +
         '</div>';
     }
 
-    function renderSwitcher_() {
-      var el = document.getElementById('module-switcher');
-      var html = '';
-      shellState.modules.forEach(function (code) {
-        html += modTabHtml_(code, CODE_META[code]);
-      });
-      if (shellState.canManageUsers) {
-        html += modTabHtml_('ADM', ADM_META, true);
+    function adminCardHtml_() {
+      return '<div class="module-card admin-card" data-code="ADM">' +
+        '<div class="module-card-top">' +
+        '<span class="mod-icon">' + ADM_META.icon + '</span>' +
+        '<span class="mod-code-light">ADM</span>' +
+        '</div>' +
+        '<div class="module-card-title">' + ADM_META.label + '</div>' +
+        '<div class="module-card-desc">Manage users, roles, and the audit log.</div>' +
+        '</div>';
+    }
+
+    function renderLauncher_() {
+      var mainEl = document.getElementById('shell-main');
+
+      if (!shellState.modules.length && !shellState.canManageUsers) {
+        mainEl.innerHTML = '<div class="launcher"><div class="placeholder-card">' +
+          '<h1>No module access yet</h1>' +
+          '<p>You don\'t have access to any modules yet. Contact your administrator.</p>' +
+          '</div></div>';
+        return;
       }
-      el.innerHTML = html;
-      Array.prototype.forEach.call(el.querySelectorAll('.mod-tab'), function (tabEl) {
-        tabEl.addEventListener('click', function () {
-          selectModule_(tabEl.getAttribute('data-code'));
+
+      var cardsHtml = shellState.modules.map(moduleCardHtml_).join('');
+      var adminSection = shellState.canManageUsers
+        ? '<div class="launcher-admin-section">' +
+          '<div class="launcher-section-label">Administration</div>' +
+          adminCardHtml_() +
+          '</div>'
+        : '';
+
+      mainEl.innerHTML =
+        '<div class="launcher">' +
+        '<div class="launcher-section-label">Modules</div>' +
+        '<div class="launcher-grid">' + cardsHtml + '</div>' +
+        adminSection +
+        '</div>';
+
+      Array.prototype.forEach.call(mainEl.querySelectorAll('.module-card[data-code]'), function (cardEl) {
+        cardEl.addEventListener('click', function () {
+          var code = cardEl.getAttribute('data-code');
+          if (code === 'ADM') {
+            openManageUser_();
+            return;
+          }
+          var launchUrl = buildModuleLaunchUrl_(shellState.moduleUrls[code], shellState.token);
+          if (launchUrl) window.top.location.href = launchUrl;
         });
       });
     }
 
-    function renderSidebar_(code) {
-      var sections = SIDEBAR_SECTIONS[code] || ['Dashboard'];
+    // ---------- Manage User shell (sidebar + content) ----------
+
+    function openManageUser_() {
+      var mainEl = document.getElementById('shell-main');
+      mainEl.innerHTML =
+        '<div class="shell-body">' +
+        '<div class="shell-sidebar" id="shell-sidebar"></div>' +
+        '<div class="shell-content" id="shell-content"></div>' +
+        '</div>';
+
+      var sections = SIDEBAR_SECTIONS['ADM'];
       var sidebarEl = document.getElementById('shell-sidebar');
-      var html = '<div class="sidebar-section-label">' + code + ' \u2014 SECTIONS</div>';
+      var html = '<div class="sidebar-back" id="sidebar-back-btn">\u2190 Modules</div>' +
+        '<div class="sidebar-section-label">ADM \u2014 SECTIONS</div>';
       sections.forEach(function (name, i) {
         html += '<div class="side-tab' + (i === 0 ? ' active' : '') + '" data-i="' + i + '"><span>' + name + '</span></div>';
       });
       sidebarEl.innerHTML = html;
+
+      document.getElementById('sidebar-back-btn').addEventListener('click', renderLauncher_);
+
       Array.prototype.forEach.call(sidebarEl.querySelectorAll('.side-tab'), function (tabEl) {
         tabEl.addEventListener('click', function () {
           Array.prototype.forEach.call(sidebarEl.querySelectorAll('.side-tab'), function (t) {
             t.classList.toggle('active', t === tabEl);
           });
-          var sectionName = tabEl.querySelector('span').textContent;
-          renderContent_(code, sectionName);
+          renderManageUser_(tabEl.querySelector('span').textContent);
         });
       });
-      renderContent_(code, sections[0]);
-    }
 
-    function renderContent_(code, sectionName) {
-      if (code === 'ADM') {
-        renderManageUser_(sectionName);
-        return;
-      }
-      var contentEl = document.getElementById('shell-content');
-      var meta = CODE_META[code];
-      var body = 'This module has not been connected yet. Once its Apps Script web app is deployed, launching ' + code + ' from the header will pass your session token through automatically via ?token=.';
-      contentEl.innerHTML =
-        '<div class="content-breadcrumb">' + code + ' / ' + sectionName + '</div>' +
-        '<div class="placeholder-card">' +
-        '<h1>' + meta.label + '</h1>' +
-        '<p>' + body + '</p>' +
-        '</div>';
+      renderManageUser_(sections[0]);
     }
 
     // ---------- Manage User (ADM) ----------
@@ -303,13 +343,6 @@
       } else {
         renderUsersList_();
       }
-    }
-
-    function adminContentShell_(bodyHtml) {
-      var contentEl = document.getElementById('shell-content');
-      contentEl.innerHTML =
-        '<div class="content-breadcrumb">ADM / ' + (adminState.currentUserId ? 'Users / Module Access' : 'Users') + '</div>' +
-        '<div class="admin-panel">' + bodyHtml + '</div>';
     }
 
     // ---- Users list ----
@@ -682,24 +715,6 @@
     }
 
 
-    // Header switcher click: modules with a configured URL navigate away
-    // (passing the session token); everything else — including ADM, which is
-    // shell-native — stays in the shell and shows its section placeholder.
-    function selectModule_(code) {
-      if (code !== 'ADM') {
-        var launchUrl = buildModuleLaunchUrl_(shellState.moduleUrls[code], shellState.token);
-        if (launchUrl) {
-          window.top.location.href = launchUrl;
-          return;
-        }
-      }
-      shellState.activeCode = code;
-      Array.prototype.forEach.call(document.querySelectorAll('.mod-tab'), function (tabEl) {
-        tabEl.classList.toggle('active', tabEl.getAttribute('data-code') === code);
-      });
-      renderSidebar_(code);
-    }
-
     function renderShell(user, moduleUrls, shellVersion, token) {
       document.getElementById('shell-user-name').textContent = user.fullName;
       document.getElementById('shell-user-role').textContent = user.isSuperUser ? 'SuperUser' : 'User';
@@ -711,23 +726,12 @@
       shellState.canManageUsers = !!user.canManageUsers;
       shellState.token = token;
 
-      renderSwitcher_();
-      var initial = shellState.modules[0] || (shellState.canManageUsers ? 'ADM' : null);
-      if (initial) {
-        selectModule_(initial);
-      } else {
-        renderEmptyAccessState_();
-      }
+      renderLauncher_();
     }
 
-    function renderEmptyAccessState_() {
-      document.getElementById('shell-sidebar').innerHTML = '';
-      document.getElementById('shell-content').innerHTML =
-        '<div class="placeholder-card">' +
-        '<h1>No module access yet</h1>' +
-        '<p>You don\'t have access to any modules yet. Contact your administrator.</p>' +
-        '</div>';
-    }
+    document.getElementById('topbar-brand').addEventListener('click', function () {
+      if (shellState.token) renderLauncher_();
+    });
 
     document.getElementById('logout-btn').addEventListener('click', function () {
       var token = getToken();
