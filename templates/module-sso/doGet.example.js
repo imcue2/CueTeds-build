@@ -10,10 +10,14 @@
 // Missing/invalid token falls back to that module's own login (covers
 // someone opening a module's raw URL directly)."
 //
-// That means CM needs its OWN login screen/flow (its own version of
-// the shell's Login.html + Auth.js's attemptLogin) as the fallback —
-// this template only covers the SSO hand-off from the shell, not
-// building that fallback login screen itself.
+// That means CM needs its OWN login screen (its own version of the
+// shell's Index.html login form) as the fallback. Auth.template.js's
+// attemptLogin(email, password) is the server-side function that
+// screen's form submit should call via google.script.run — it
+// authenticates against the same Users sheet and, on success, writes
+// a session row that the shell and every other module recognize (not
+// a disconnected local login). This file only shows doGet() routing;
+// the actual login form HTML/client-JS isn't included here.
 
 function doGet(e) {
   var token = e.parameter.token;

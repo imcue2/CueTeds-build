@@ -23,11 +23,15 @@
 //      out of its URL.
 //   2. Share that spreadsheet with the Google account CM deploys as
 //      (its "Execute as" identity — should match the shell's own
-//      executeAs: USER_DEPLOYING in appsscript.json). Viewer access is
-//      enough for read-only validation; Editor access is needed only
-//      if you keep the opportunistic purgeExpiredSessions_() cleanup
-//      below. Without this share, SpreadsheetApp.openById() below will
-//      throw a permission error at runtime.
+//      executeAs: USER_DEPLOYING in appsscript.json). EDITOR access is
+//      required — this file both reads and writes the Sessions sheet
+//      (createSessionRow_ below), and if CM's own login also reads the
+//      Users sheet's password hashes (see Auth.template.js), that's
+//      read access on Users too. Viewer-only would only be enough for
+//      a module that never creates its own sessions (pure token
+//      hand-off validation, no fallback login). Without the share,
+//      SpreadsheetApp.openById() below will throw a permission error
+//      at runtime.
 
 var USERS_SHEET_ID = 'PASTE_SHELL_USERS_SPREADSHEET_ID_HERE';
 var SESSIONS_SHEET_NAME = 'Sessions';
@@ -116,4 +120,24 @@ function readSession_(token) {
   } catch (e) {
     return null;
   }
+}
+
+// Writes a new session row — this is how CM's OWN fallback login (see
+// Auth.template.js's attemptLogin) produces a token that the shell and
+// every other module recognizes, instead of a disconnected local login.
+// ttlSeconds should match the shell's CONFIG.SESSION_TTL_SECONDS
+// (21600 = 6 hours) so session lifetime behaves the same everywhere.
+function createSessionRow_(token, userId, payload, ttlSeconds) {
+  var sheet = getSessionsSheet_();
+  var colMap = getSessionsColumnMap_(sheet);
+  purgeExpiredSessions_(sheet, colMap);
+
+  var now = new Date();
+  var row = new Array(SESSIONS_COLUMNS.length);
+  row[colMap['Token'] - 1] = token;
+  row[colMap['User ID'] - 1] = userId;
+  row[colMap['Payload'] - 1] = JSON.stringify(payload);
+  row[colMap['Created At'] - 1] = now;
+  row[colMap['Expires At'] - 1] = new Date(now.getTime() + ttlSeconds * 1000);
+  sheet.appendRow(row);
 }
