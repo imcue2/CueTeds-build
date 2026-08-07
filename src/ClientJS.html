@@ -132,6 +132,7 @@
       CBM: { label: "Container Bond Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"></path><path d=\"M3.27 6.96 12 12.01l8.73-5.05\"></path><path d=\"M12 22.08V12\"></path></svg>" },
       PCF: { label: "Petty Cash Fund Tracker", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 12V7H5a2 2 0 0 1 0-4h14v4\"></path><path d=\"M3 5v14a2 2 0 0 0 2 2h16v-5\"></path><path d=\"M18 12a2 2 0 0 0 0 4h4v-4Z\"></path></svg>" },
       VAA: { label: "Vessel Agency Appointments Monitoring", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2v4\"></path><path d=\"M16 2v4\"></path><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"1\"></rect><path d=\"M3 10h18\"></path><path d=\"m9 16 2 2 4-4\"></path></svg>" },
+      CM: { label: "Container Movement", icon: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"18 8 22 12 18 16\"></polyline><polyline points=\"6 8 2 12 6 16\"></polyline><line x1=\"2\" x2=\"22\" y1=\"12\" y2=\"12\"></line></svg>" },
     };
     
     var ADM_META = { label: "Manage User", icon: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path></svg>" };
@@ -143,7 +144,7 @@
     var MODULE_BRANCH_SCOPE = {
       TRN: 'branch-split', VIC: 'branch-split', OSI: 'branch-split', COC: 'branch-split',
       SPC: 'company-wide', IPM: 'branch-split', EFT: 'branch-split', CBM: 'branch-split',
-      PCF: 'branch-split', VAA: 'company-wide'
+      PCF: 'branch-split', VAA: 'company-wide', CM: 'branch-split'
     };
 
     // Short one-line descriptions for each module's launcher card.
@@ -157,7 +158,8 @@
       EFT: 'Track EFT payment registrations through to completion.',
       CBM: 'Track container bond registrations and job numbers.',
       PCF: 'Track petty cash fund disbursements and balances.',
-      VAA: 'Track vessel agency appointment jobs from registration to closure.'
+      VAA: 'Track vessel agency appointment jobs from registration to closure.',
+      CM: 'Gate-In / Gate-Out tracking, yard ageing, and container reports'
     };
 
     // Manage User's own sidebar sub-navigation — the only place the shell

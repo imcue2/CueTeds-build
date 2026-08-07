@@ -29,14 +29,21 @@ var USERS_COLUMNS = [
 
 // Header module switcher order (Section 4.2 of the spec). ADM (Manage User)
 // is shell-native, not a separate deployed module, so it isn't listed here.
-var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF', 'VAA'];
+var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF', 'VAA', 'CM'];
 
 // Filled in as each module is deployed as its own Apps Script web app
 // (Section 1: hub-and-spoke). Empty string = not yet connected — the header
 // switcher will show a placeholder for that module instead of navigating.
+//
+// CM (Container Movement): PENDING_DEPLOYMENT_URL — its Apps Script project
+// hasn't been deployed yet. Must stay '' (not a placeholder string) since
+// the launcher card's disabled state is driven by whether this value is
+// truthy — a non-empty placeholder would make the card clickable and
+// navigate to a broken URL. Fill in with the real /exec URL once deployed.
 var MODULE_URLS = {
   TRN: '', VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
-  SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: ''
+  SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: '',
+  CM: ''
 };
 
 // Branch scoping per module (Section 5). Branch Admin's meta-grant only
@@ -52,7 +59,10 @@ var MODULE_BRANCH_SCOPE = {
   EFT: 'branch-split',
   CBM: 'branch-split',
   PCF: 'branch-split',
-  VAA: 'company-wide'
+  VAA: 'company-wide',
+  // POM-only today, but built to extend to LAE — branch-split like COC so
+  // Branch Admins get it automatically rather than needing a per-user grant.
+  CM: 'branch-split'
 };
 
 // Section 3 role tiers assignable per module in the access matrix.
