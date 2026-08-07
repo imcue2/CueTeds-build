@@ -141,3 +141,15 @@ function createSessionRow_(token, userId, payload, ttlSeconds) {
   row[colMap['Expires At'] - 1] = new Date(now.getTime() + ttlSeconds * 1000);
   sheet.appendRow(row);
 }
+
+// Overwrites the payload for an existing session row and refreshes
+// Expires At by another full TTL window from now. Used by
+// changePassword (Auth.template.js) to flip mustChangePassword to
+// false in the already-issued session, so the client doesn't have to
+// log in again just because it changed its password.
+function updateSessionPayloadRow_(rowNumber, payload, ttlSeconds) {
+  var sheet = getSessionsSheet_();
+  var colMap = getSessionsColumnMap_(sheet);
+  sheet.getRange(rowNumber, colMap['Payload']).setValue(JSON.stringify(payload));
+  sheet.getRange(rowNumber, colMap['Expires At']).setValue(new Date(Date.now() + ttlSeconds * 1000));
+}

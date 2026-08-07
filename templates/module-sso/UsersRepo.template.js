@@ -53,10 +53,28 @@ function findUserByEmail_(email) {
   return null;
 }
 
-// Used by attemptLogin to stamp Last Login. Also usable if CM later
-// needs to update any other Users column (e.g. its own
-// Must-Change-Password flow, if you build one — see the note in
-// Auth.template.js about that gap).
+// Used by changePassword (Auth.template.js) to look a user up by the
+// session payload's userId, since a session doesn't carry the row
+// number.
+function findUserById_(userId) {
+  var sheet = getUsersSheet_();
+  var colMap = getUsersColumnMap_(sheet);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][colMap['User ID'] - 1]) === String(userId)) {
+      var user = rowToUser_(data[i], colMap);
+      user._rowNumber = i + 2;
+      return user;
+    }
+  }
+  return null;
+}
+
+// Used by attemptLogin to stamp Last Login, and by changePassword to
+// write the new Password Hash / Salt / Must Change Password.
 function updateUserFields_(rowNumber, fields) {
   var sheet = getUsersSheet_();
   var colMap = getUsersColumnMap_(sheet);

@@ -12,7 +12,8 @@
 
 var CONFIG = {
   USERS_SHEET_NAME: 'Users',
-  SESSION_TTL_SECONDS: 21600 // 6 hours — must match the shell's value.
+  SESSION_TTL_SECONDS: 21600, // 6 hours — must match the shell's value.
+  MIN_PASSWORD_LENGTH: 8
 };
 
 var USERS_COLUMNS = [
