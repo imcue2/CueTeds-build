@@ -34,16 +34,10 @@ var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF
 // Filled in as each module is deployed as its own Apps Script web app
 // (Section 1: hub-and-spoke). Empty string = not yet connected — the header
 // switcher will show a placeholder for that module instead of navigating.
-//
-// CM (Container Movement): PENDING_DEPLOYMENT_URL — its Apps Script project
-// hasn't been deployed yet. Must stay '' (not a placeholder string) since
-// the launcher card's disabled state is driven by whether this value is
-// truthy — a non-empty placeholder would make the card clickable and
-// navigate to a broken URL. Fill in with the real /exec URL once deployed.
 var MODULE_URLS = {
   TRN: '', VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
   SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: '',
-  CM: ''
+  CM: 'https://script.google.com/macros/s/AKfycbzG3eS4hux936GSgTxw3LpUnNgDFclhtrdEvPIC2TxBCcH_Bm9vhmYCtx5X-UdjCsgtOg/exec'
 };
 
 // Branch scoping per module (Section 5). Branch Admin's meta-grant only
