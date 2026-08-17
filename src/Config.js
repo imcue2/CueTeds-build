@@ -36,7 +36,8 @@ var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF
 // switcher will show a placeholder for that module instead of navigating.
 var MODULE_URLS = {
   TRN: '', VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
-  SPC: '', IPM: '', EFT: '', CBM: '', PCF: '', VAA: '',
+  SPC: '', IPM: '', EFT: 'https://script.google.com/macros/s/AKfycbz2ZBTzTlv9d6DMF5I0WNSbDfVsCZt_ynGYKqwuW0BanSnzztkGN34yLrvjjOOhiCC6/exec',
+  CBM: '', PCF: '', VAA: '',
   CM: 'https://script.google.com/macros/s/AKfycbzG3eS4hux936GSgTxw3LpUnNgDFclhtrdEvPIC2TxBCcH_Bm9vhmYCtx5X-UdjCsgtOg/exec'
 };
 

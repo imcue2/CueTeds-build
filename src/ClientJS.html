@@ -417,6 +417,7 @@
         '<td><select class="admin-branch-admin-select">' + branchOptions + '</select></td>' +
         '<td class="admin-row-actions">' +
         '<button class="btn-link admin-edit-access-btn">Module Access</button>' +
+        '<button class="btn-link admin-reset-pw-btn">Reset Password</button>' +
         '<button class="btn-link admin-status-btn">' + statusLabel + '</button>' +
         '<button class="btn-link admin-danger admin-delete-btn">Delete</button>' +
         '</td></tr>';
@@ -457,6 +458,30 @@
             .withSuccessHandler(function (result) { handleAdminResult_(result, loadUsers_); })
             .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
             .adminSetAccountStatus(shellState.token, userId, newStatus);
+        });
+      });
+
+      Array.prototype.forEach.call(tableEl.querySelectorAll('.admin-reset-pw-btn'), function (el) {
+        el.addEventListener('click', function () {
+          var row = el.closest('tr');
+          var userId = row.getAttribute('data-user-id');
+          var user = adminState.users.filter(function (u) { return u.userId === userId; })[0];
+          if (!window.confirm('Reset the password for ' + user.fullName + ' (' + user.email + ')? They will need to set a new password on their next login.')) return;
+          google.script.run
+            .withSuccessHandler(function (result) {
+              if (!result.success) {
+                showAdminBanner_(result.message, true);
+                return;
+              }
+              showAdminBanner_(
+                'Password reset for ' + user.fullName + '. Temporary password: ' + result.tempPassword +
+                ' (single-use — share this with them directly).',
+                false
+              );
+              loadUsers_();
+            })
+            .withFailureHandler(function (err) { showAdminBanner_('Something went wrong: ' + (err && err.message), true); })
+            .adminResetPassword(shellState.token, userId);
         });
       });
 

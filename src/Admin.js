@@ -175,6 +175,39 @@ function adminSetAccountStatus(token, userId, accountStatus) {
   return { success: true };
 }
 
+// Admin-triggered reset — generates a new single-use temp password
+// (same scheme as the initial SuperUser seed) and flags Must Change
+// Password = Y, so the user is forced through the "set new password"
+// screen on their next login. Doesn't revoke any session already in
+// progress — only affects future logins.
+function adminResetPassword(token, userId) {
+  var session = requireAdminSession_(token);
+  if (!session) return { success: false, message: 'Not authorized.' };
+
+  var user = findUserById_(userId);
+  if (!user) return { success: false, message: 'User not found.' };
+
+  var tempPassword = generateTempPassword_();
+  var salt = generateSalt_();
+  updateUserFields_(user._rowNumber, {
+    'Password Hash': hashPassword_(tempPassword, salt),
+    'Salt': salt,
+    'Must Change Password': 'Y'
+  });
+
+  writeAuditLog_({
+    user: actingUserLabel_(session),
+    module: 'ADM',
+    recordRef: user['Email'],
+    action: 'Update',
+    fieldChanged: 'Password Reset',
+    oldValue: '',
+    newValue: '(reset by admin — single-use temp password issued)'
+  });
+
+  return { success: true, tempPassword: tempPassword };
+}
+
 function adminDeleteUser(token, userId) {
   var session = requireAdminSession_(token);
   if (!session) return { success: false, message: 'Not authorized.' };
