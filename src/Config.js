@@ -35,7 +35,8 @@ var MODULE_CODES = ['TRN', 'VIC', 'OSI', 'COC', 'SPC', 'IPM', 'EFT', 'CBM', 'PCF
 // (Section 1: hub-and-spoke). Empty string = not yet connected — the header
 // switcher will show a placeholder for that module instead of navigating.
 var MODULE_URLS = {
-  TRN: '', VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
+  TRN: 'https://script.google.com/macros/s/AKfycbz-1lYzNTvvUb47H7P9Dcqi2Ocmvdogqg-6lE0d1WPsCpNAh4NJzKx1XKdPEINbL0GhMQ/exec',
+  VIC: '', OSI: '', COC: 'https://script.google.com/macros/s/AKfycbzgMRoD5XUoHLxUj889d6eWCefC9cbFXUbr1OxoQZMpGeXZ289MDjcz_C1Mci1xzpfegg/exec',
   SPC: '', IPM: '', EFT: 'https://script.google.com/macros/s/AKfycbz2ZBTzTlv9d6DMF5I0WNSbDfVsCZt_ynGYKqwuW0BanSnzztkGN34yLrvjjOOhiCC6/exec',
   CBM: '', PCF: '', VAA: '',
   CM: 'https://script.google.com/macros/s/AKfycbzG3eS4hux936GSgTxw3LpUnNgDFclhtrdEvPIC2TxBCcH_Bm9vhmYCtx5X-UdjCsgtOg/exec'
